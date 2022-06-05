@@ -1,18 +1,12 @@
 <template>
   <div id="app">
-    <Home />
+    <router-view></router-view>
   </div>
 </template>
 
 <script>
-import Home from './components/home.vue'
-import Video from './components/video.vue'
 export default {
   name: 'App',
-  components: {
-    Home,
-    Video,
-  },
 }
 </script>
 
@@ -23,5 +17,14 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
+}
+.el-form-item__error {
+  margin-top: -12px;
+  padding-top: 0px;
+}
+.el-form-item__label {
+  font-size: 18px;
+  padding: 15px 24px;
+  padding-right: 0px;
 }
 </style>

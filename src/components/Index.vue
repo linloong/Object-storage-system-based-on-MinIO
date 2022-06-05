@@ -4,8 +4,13 @@
     <el-main
       ><el-row :gutter="20">
         <el-col v-for="(item, index) in videosMeta" :key="index" :span="8"
-          ><div class="grid-content bg-purple">{{ item.objName }} <el-button @click="deleteFile(item)">删除</el-button> <video class="video-prev" :src="item.url" controls="true"></video></div
-        ></el-col>
+          ><div class="grid-content bg-purple">
+            {{ item.objName }} <el-button @click="deleteFile(item)">删除</el-button>
+            <router-link :to="{ name: 'video', params: { name: item.objName, url: item.url } }">
+              <img :src="item.poster" alt="" srcset="" />
+            </router-link>
+          </div>
+        </el-col>
         <el-col :span="8">
           <div class="grid-content bg-purple">
             <el-form el-form :model="ruleForm" :rules="rules" ref="ruleForm">
@@ -34,7 +39,7 @@ let Minio = require('minio')
 const stream = require('stream')
 let axios = require('axios')
 export default {
-  name: 'Home',
+  name: 'Index',
   data() {
     return {
       minioClient: new Minio.Client({
@@ -86,7 +91,7 @@ export default {
             if (err) return console.log(err)
             // record the object url
             meta.url = presignedUrl
-            vm.videosMeta.push(meta)
+            vm.getPoster(presignedUrl, meta)
           })
         })
         stream.on('error', function (err) {
@@ -96,6 +101,29 @@ export default {
     })
   },
   methods: {
+    getPoster(url, meta) {
+      let dataURL = ''
+      let video = document.createElement('video')
+      video.setAttribute('crossOrigin', 'anonymous') //处理跨域
+      video.setAttribute('src', url)
+      video.setAttribute('width', 400)
+      video.setAttribute('height', 210)
+      video.setAttribute('preload', 'auto')
+      video.currentTime = 1
+      let vm = this
+      video.addEventListener('loadeddata', function () {
+        let canvas = document.createElement('canvas'),
+          width = video.width, //canvas的尺寸和图片一样
+          height = video.height
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(video, 0, 0, width, height) //绘制canvas
+        dataURL = canvas.toDataURL('image/jpeg') //转换为base64
+
+        meta.poster = dataURL
+        vm.videosMeta.push(meta)
+      })
+    },
     // 限制文件上传的个数只有一个，获取上传列表的最后一个
     handleUploadChange(file, fileList) {
       if (fileList.length > 0) {
@@ -106,11 +134,9 @@ export default {
     uploadHttpRequest(data) {
       let vm = this
       let file = data.file
-
       // 获取文件类型及大小
       const fileName = file.name
-
-      // 将文件转换为minio可接收的格式
+      // 将文件转换为 minio 可接收的格式
       const reader = new FileReader()
       reader.readAsArrayBuffer(file)
       reader.onload = (e) => {
@@ -122,7 +148,6 @@ export default {
           if (valid) {
             // 上传
             this.show = true
-
             vm.minioClient.presignedPutObject(vm.ruleForm.bucketName, fileName, 24 * 60 * 60, function (err, presignedUrl) {
               if (err) return console.log(err)
               let config = {
@@ -203,30 +228,15 @@ export default {
   border-radius: 4px;
   margin: 10px 0px;
 }
-.bg-purple-dark {
-  background: #99a9bf;
-}
 .bg-purple {
   background: #d3dce6;
-}
-.bg-purple-light {
-  background: #e5e9f2;
 }
 .grid-content {
   border-radius: 4px;
   height: 285px;
 }
-.row-bg {
-  padding: 10px 0;
-  background-color: #f9fafc;
-}
 .el-select {
   padding: 15px 0px;
-}
-
-.video-prev {
-  width: 400px;
-  height: 200px;
 }
 .el-button {
   margin: 10px 10px;
@@ -234,14 +244,5 @@ export default {
 }
 .el-form-item {
   margin-bottom: 10px;
-}
-.el-form-item__error {
-  margin-top: -12px;
-  padding-top: 0px;
-}
-.el-form-item label {
-  font-size: 18px;
-  padding: 15px 24px;
-  padding-right: 0px;
 }
 </style>
