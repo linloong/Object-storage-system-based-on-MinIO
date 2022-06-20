@@ -35,6 +35,7 @@
 </template>
 
 <script>
+import { Loading } from 'element-ui'
 let Minio = require('minio')
 const stream = require('stream')
 let axios = require('axios')
@@ -70,37 +71,41 @@ export default {
       },
     }
   },
-  async created() {
-    let vm = this
-    this.minioClient.listBuckets(function (err, buckets) {
-      if (err) return console.log(err)
-      buckets.forEach((e) => {
-        // get the name of bucket
-        vm.bucketNames.push(e.name)
-        // list the objects of this bucket
-        let stream = vm.minioClient.listObjects(e.name, '', true)
-
-        stream.on('data', function (obj) {
-          let meta = new Object()
-          meta.bucketName = e.name
-          // get the name of the objects
-          meta.objName = obj.name
-
-          // get the URL of the objects to play the videos
-          vm.minioClient.presignedUrl('GET', e.name, obj.name, 24 * 60 * 60, function (err, presignedUrl) {
-            if (err) return console.log(err)
-            // record the object url
-            meta.url = presignedUrl
-            vm.getPoster(presignedUrl, meta)
-          })
-        })
-        stream.on('error', function (err) {
-          console.log(err)
-        })
-      })
-    })
+  created() {
+    this.getVideoMetas()
   },
   methods: {
+    getVideoMetas() {
+      let vm = this
+      this.minioClient.listBuckets(function (err, buckets) {
+        if (err) return console.log(err)
+        buckets.forEach((e) => {
+          // 获取minIO中Bucket的名字
+          vm.bucketNames.push(e.name)
+          // 获取每个Bucket中所有对象的信息
+          let stream = vm.minioClient.listObjects(e.name, '', true)
+
+          stream.on('data', function (obj) {
+            let meta = new Object()
+            meta.bucketName = e.name
+            // 获得对象名字
+            meta.objName = obj.name
+
+            // 获得对象的URL
+            vm.minioClient.presignedUrl('GET', e.name, obj.name, 24 * 60 * 60, function (err, presignedUrl) {
+              if (err) return console.log(err)
+              // 记录对象的URL
+              meta.url = presignedUrl
+              // 根据URL截取视频做封面
+              vm.getPoster(presignedUrl, meta)
+            })
+          })
+          stream.on('error', function (err) {
+            console.log(err)
+          })
+        })
+      })
+    },
     getPoster(url, meta) {
       let dataURL = ''
       let video = document.createElement('video')
@@ -109,7 +114,7 @@ export default {
       video.setAttribute('width', 400)
       video.setAttribute('height', 210)
       video.setAttribute('preload', 'auto')
-      video.currentTime = 1
+      video.currentTime = 5
       let vm = this
       video.addEventListener('loadeddata', function () {
         let canvas = document.createElement('canvas'),
@@ -192,10 +197,15 @@ export default {
         type: 'warning',
       })
         .then(() => {
+          let loadingInstance = Loading.service({ text: '删除中', background: '#4c4c4c' })
           vm.minioClient.removeObject(e.bucketName, e.objName, function (err) {
             if (err) {
               return console.log('Unable to remove object', err)
             }
+            vm.$nextTick(() => {
+              // 删除成功后，结束loading状态
+              loadingInstance.close()
+            })
             console.log('Removed the object')
             vm.$message({
               type: 'success',
